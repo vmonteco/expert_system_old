@@ -17,8 +17,9 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
     Class to represent a predicate (A value expressed with other predicates in
     a tree structure.
     """
-
+    
     def __init__(self, register=True):
+
         """
         Predicate __init__ method adds containers for :
         -predicates implied by the instance.
@@ -31,72 +32,258 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
         equivalence links (if register args is True).
         """
 
-        # related predicates
         self.self_implies = set()
         self.is_implied_by = set()
         self.contained_by = set()
-        self.defined_eqs = set()
-        
-        self.entity = src.Entity.Entity(self)        
         self.results = set()
-
-        # flags
-        self.used = False
+        self.defined_eqs = set()
+        self.entity = src.Entity.Entity(self)
+        self.state = Undefined
         self.results_built = False
-
+        self.used = False
+        self.displayed = False
+        self.reasonning_selection = False
         if register:
             self.link_equivalents()
-        
+
+            
     def solve(self, verbose=False, debug=False):
+
         """
-        This method solves the state of the current predicate by
-        computing all the values of related predicates.
-
-        It must avoid cyclic route that would lead to infinite loop.
-
-        Here must be the expected returned format :
-
-        solution :
-        {
-            'result' : ,
-            'length' : ,
-            'parent_solutions' : [solution1 [, solution2]]
-        }
+        Entrypoint to solve a predicate's state.
         """
 
+        # if self.entity.used :
+        #     return Undefined
+
+        # Make results :
         if self.used:
-            return None
+            return Undefined
+        #print("solving", self)
         self.used = True
+        
+        # Make results :
         if self.results_built == False:
             self.make_results()
-        solutions = [r.get_solution() for r in self.results]
+            
+        # Solve results (while no undefined result?):
+        #r_to_solve = [r for r in self.results if r.value == Undefined]
+        if debug:
+            print("Trying to solve %s" % self)
+            #while r_to_solve:
+        for r in self.results:
+            r.solve(verbose, debug)
+            #r_to_solve = [r for r in self.results if r.value == Undefined]
+            
+        # Check results :
+        #elf.check_results()
+        solution = self.get_reasonning_to_follow()
+
+        if solution == None:
+            self.value = Undefined
+        else:
+            self.value = solution['result'].solve()
+        self.used = False
+        return self.value
+
+    
+    
+
+
+    def make_display_text(self, verbose, debug):
+        if self.displayed == True:
+            return ''
+        self.displayed = True
+        self.solve()
+        if verbose :
+            r = self.get_reasonning_to_follow()
+            r_display_text = r['result'].make_display_text(
+                verbose,
+                debug
+            )
+            res = "  {}\nTherefore : {} is {}.".format(
+                r_display_text.replace('\n', '\n  '), str(self), str(self.solve())
+            )
+        elif debug:
+            r_display_text = '\n\n'.join(
+                [r.make_display_text(verbose, debug) for r in self.results]
+            )
+            res = "{}\nTherefore : {} is {}.".format(
+                r_display_text.replace('\n', '\n  '), str(self), str(self.solve())
+            )
+        else:
+            res = "{} is {}.".format(str(self), str(self.solve()))
+        return res
+            
+
+    def check_results(self):
+
+        """
+        An exception should be raised if :
+        There are both a True result and a False result.
+        """
+
+        if ([r for r in self.results if r.value == F]
+            and [r for r in self.results if r.value == T]):
+            raise IncoherenceError()
+
+
+    def print_details(self):
+        print("-%s\nImplied by :" % (str(self),))
+        for p in self.is_implied_by:
+            print(p)
+        print("Implying :")
+        for p in self.self_implies:
+            print(p)
+        print("defined_eqs:")
+        for p in self.defined_eqs:
+            print(p)
+        print("contained by :")
+        for p in self.contained_by:
+            print(p)
+        print("equivalences :")
+        for p in self.entity.predicates:
+            print(p)
+
+        
+    def make_results(self):
+
+        """
+        Makes results.
+        """
+        
+        self.make_equivalences_results()
+        self.make_direct_implication_results()
+        self.make_indirect_implication_results()
+        self.make_parent_results()
+        if not isinstance(self, AtomicPredicate):
+            self.make_child_results()
+        self.results_built = True
+
+
+    def make_equivalences_results(self):
+
+        """
+        Make results related to equivalences.
+        """
+
+        for pred in self.entity.predicates :
+            if not pred is self:
+                if pred in self.defined_eqs:
+                    self.results.add(DefinedEquivalenceResult(self, pred))
+                else:
+                    self.results.add(DeducedEquivalenceResult(self, pred))
+
+    
+    def make_direct_implication_results(self):
+
+        """
+        Make results related to direct implications.
+        """
+
+        for pred in self.is_implied_by:
+            self.results.add(src.Results.ImplicationResult(pred=self, srcpred=pred))
+
+            
+    def make_indirect_implication_results(self):
+
+        """
+        Make results related to indirect implications, ((A->B)->(!B->!A)).
+        """
+
+        for pred in self.self_implies:
+            self.results.add(src.Results.IndirectImplicationResult(pred=self, srcpred=pred))
+            
+    
+    def make_parent_results(self):
+
+        """
+        Make results related to predicates containing the instance.
+        """
+        
+        for pred in self.contained_by:
+            self.results.add(pred.parent_result_class(self, pred))
+            
+
+    def make_child_results(self):
+
+        """
+        Make results related to contained predicates (For Parent predicates).
+        """
+
+        self.results.add(ChildResult(self))
+        
+
+    def get_reasonning_to_follow(self):
+        if self.reasonning_selection:
+            return None
+        self.solve()
+        self.reasonning_selection = True
         T_res = None
         F_res = None
         U_res = None
-        for s in solutions:
-            if s == None:
+        results = [r.get_characteristics() for r in self.results]
+        print(results)
+        print("result : ", results[-1])
+        for r in results:
+            if r == None:
                 continue
-            if s.result.value == T:
+            if r['result'].value == T:
                 if F_res != None:
                     raise Exception()
-                elif T_res == None or s.length < T_res.length:
-                    T_res = s
-            elif s.result.value == F:
+                elif T_res == None or r['length'] < T_res['length']:
+                    T_res = r
+            if r['result'].value == F:
                 if T_res != None:
                     raise Exception()
-                elif F_res == None or s.length < F_res.length:
-                    F_res = s
-            elif s.result.value == U:
-                if U_res == None or s.result.length < U_res.result.length:
-                    U_res = s
-        solution = (
-            T_res or F_res or U_res
-            or src.Results.DefaultResult(self).get_solution()
-        )
-        self.used = False
-        return solution
+                elif F_res == None or r['length'] < F_res['length']:
+                    F_res = r
+            if r['result'].value == U:
+                if U_res == None or r['length'] < U_res['length']:
+                    U_res = r
+        result = T_res or F_res or U_res or {'result' : src.Results.DefaultResult(self), 'length' : 0}
+        result['length'] += 1
+        self.reasonning_selection = False
+        return result
+        
+    # def get_reasonning_to_follow(self):
 
-    
+    #     """
+    #     Used to get the best result to follow (T, F > U), and the shorter the
+    #     better.
+
+    #     In some cases, a result is created and returned (src.Results.DefaultResult for
+    #     instance).
+    #     """
+
+    #     default = src.Results.DefaultResult(self)
+    #     result = default
+    #     if self.reasonning_selection:
+    #         return None
+    #     self.reasonning_selection = True
+    #     #print(self, self.results)
+    #     for r in list(self.results):
+    #         if len(r) == 0:
+    #             #print(self, r)
+    #             continue
+    #         if (result.value in (T, F)
+    #             and r.value in (T, F)
+    #             and not isinstance(result, src.Results.DefaultResult)
+    #             and r.value != result.value
+    #         ):
+    #             raise IncoherenceError(result, r)
+    #         if (result == default):
+    #             if r.value in (T, F, U):
+    #                 result = r
+    #         else:
+    #             if result.value == U and r.value in (T, F):
+    #                 result = r
+    #             elif len(result) > len(r):
+    #                 result = r
+    #     self.reasonning_selection = False
+    #     return result
+
+
     def link_equivalents(self):
 
         """
@@ -107,6 +294,7 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
         eqs = self.get_equivalents()
         for e in eqs:
             e.merge(self.entity)
+
     
     def get_equivalents(self):
 
@@ -180,73 +368,6 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
             result.update(self.p.list_atomic_preds())
         return result
 
-    def make_results(self):
-
-        """
-        Makes results.
-        """
-        
-        self.make_equivalences_results()
-        self.make_direct_implication_results()
-        self.make_indirect_implication_results()
-        self.make_parent_results()
-        if not isinstance(self, AtomicPredicate):
-            self.make_child_results()
-        self.results_built = True
-
-
-    def make_equivalences_results(self):
-
-        """
-        Make results related to equivalences.
-        """
-
-        for pred in self.entity.predicates :
-            if not pred is self:
-                if pred in self.defined_eqs:
-                    self.results.add(DefinedEquivalenceResult(self, pred))
-                else:
-                    self.results.add(DeducedEquivalenceResult(self, pred))
-
-    
-    def make_direct_implication_results(self):
-
-        """
-        Make results related to direct implications.
-        """
-
-        for pred in self.is_implied_by:
-            self.results.add(src.Results.ImplicationResult(pred=self, srcpred=pred))
-
-            
-    def make_indirect_implication_results(self):
-
-        """
-        Make results related to indirect implications, ((A->B)->(!B->!A)).
-        """
-
-        for pred in self.self_implies:
-            self.results.add(src.Results.IndirectImplicationResult(pred=self, srcpred=pred))
-            
-    
-    def make_parent_results(self):
-
-        """
-        Make results related to predicates containing the instance.
-        """
-        
-        for pred in self.contained_by:
-            self.results.add(pred.parent_result_class(self, pred))
-            
-
-    def make_child_results(self):
-
-        """
-        Make results related to contained predicates (For Parent predicates).
-        """
-
-        self.results.add(ChildResult(self))
-
     
     def make_bis(self):
 
@@ -254,6 +375,50 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
         Used to make a copy of self, the AtomicPredicates names change ('-bis'
         at their end.
         """
+
+        raise NotImplementedError
+
+    
+    def get_state(self):
+
+        """
+        Returns the current instance's state (T, F, U, Undefined).
+
+        ??? From a state attribute or from the best result found. ???
+        How to make is_eq then? 
+        Or make two different methods?
+        """
+
+        raise NotImplementedError
+
+    
+    def get_direct_state(self):
+
+        """
+        Returns the current instance's state (T, F, U, Undefined) from the
+        instance's attribute.
+        """
+
+        raise NotImplementedError
+
+    
+    def get_state_from_results(self):
+
+        """
+        Return the current instance's state from the computed results.
+        """
+
+        pass
+    
+    def __contains__(self, pred):
+
+        """
+        Returns True if self contains or is pred, False otherwise.
+        """
+
+        raise NotImplementedError
+    
+    def __str__(self):
 
         raise NotImplementedError
 

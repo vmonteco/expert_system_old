@@ -28,8 +28,8 @@ def make_parser():
 
 def solve(queries, verbose, debug):
     for q in queries:
-        q.solve()
-        print(q.make_display_text(verbose, debug))
+        solution = q.solve()
+        print(solution.make_display_text(verbose, debug))
 
         
 def run(filename, verbose, debug):

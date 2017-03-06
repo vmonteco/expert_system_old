@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from src.LogicalValues import T, F, U, Undefined
+import src.Solution
 
 ################################################################################
 #                                Result classes                                #
@@ -27,44 +28,19 @@ class Result:#(metaclass=ResultMemoizeMetaclass):
         self.value = value
         self.pred = pred
         self.displayed = False
-        
-    def __len__(self):
-        """
-        Depending of the kind of predicate, the __len__ method returns the
-        length of the shortest reasonning that permits to deduce the instance
-        value.
-        
-        It's 0 if the result comes from an end (default value, arbitrary
-        definition in parsed file...).
-        
-        If it's not an end (parent predicate, implication, predicate...), the
-        __len__ method uses the source predicate's (parent, premise in
-        implication...) find_shortest_reasonning method and returns the
-        returned's result + 1.
-        """
-        #if self.length != None:
-        #    return length
-        reasonning_to_follow = self.srcpred.get_reasonning_to_follow()
-        if reasonning_to_follow == None:
-            return 0
-        srclen = len(reasonning_to_follow)
-        self.length = srclen + 1
-        return self.length
 
-    def get_characteristics(self):
-        print(self, type(self))
-        reasonning_to_follow = self.srcpred.get_reasonning_to_follow()
-        print(reasonning_to_follow)
-        if reasonning_to_follow == None:
-            return None
-        return {
-            'result' : self,
-            'length' : (
-                reasonning_to_follow['length']
-                + 1
-            )
-        }
-    
+        
+    def get_solution(self):
+        """
+        This method generates the reasonning (Solution instance) to deduce the
+        current predicate's state.
+        It implementation may depend of the kind of result and the number of
+        parent results may vary.
+        """
+        self.solve()
+        solution = src.Solution.Solution(self, self.srcpred.solve())
+        return solution
+            
     def solve(self, verbose=False, debug=False):
         """
         If the result's value isn't determined, the solve method deduces it,
@@ -80,8 +56,7 @@ class Result:#(metaclass=ResultMemoizeMetaclass):
         """
 
         if self.used:
-            return Undefined
-        #self.value = Undefined
+            return self.value
         self.used = True
         if self.value == Undefined or self.value == U:
             self.value = self.solvesubmethod(verbose, debug)
@@ -405,7 +380,8 @@ class ImplicationResult(Result):
         T : T,
         U : U,
         F : U,
-        Undefined : Undefined
+        Undefined : Undefined,
+        None : Undefined
     }
     
     def __init__(self, pred, srcpred):
@@ -413,12 +389,14 @@ class ImplicationResult(Result):
         self.srcpred = srcpred
 
     def value_from_srcpred(self, srcstate):
-        return self.values[srcstate]
+        return self.values[srcstate.result.value]
     
     def solvesubmethod(self, verbose, debug):
         if self.value != None and self.value != Undefined and self.value != U:
             return self.value
         srcstate = self.srcpred.solve(verbose, debug)
+        if srcstate == None:
+            return Undefined
         self.value = self.value_from_srcpred(srcstate)
         return self.value
     
@@ -428,7 +406,7 @@ class ImplicationResult(Result):
         vals = {}
         vals['srcpred'] = self.srcpred
         vals['pred'] = self.pred
-        vals['srcval'] = self.srcpred.solve()
+        vals['srcval'] = self.srcpred.solve().result.value
         vals['val'] = self.value
         #vals['reason'] = self.reason
         return res.format(**vals)
@@ -447,7 +425,8 @@ class IndirectImplicationResult(ImplicationResult):
         T : U,
         U : U,
         F : F,
-        Undefined : Undefined
+        Undefined : Undefined,
+        None : Undefined
     }
             
     def __str__(self):
@@ -456,7 +435,7 @@ class IndirectImplicationResult(ImplicationResult):
         vals = {}
         vals['srcpred'] = self.srcpred
         vals['pred'] = self.pred
-        vals['srcval'] = self.srcpred.solve()
+        vals['srcval'] = self.srcpred.solve().result.val
         vals['val'] = self.value
         #vals['reason'] = self.reason
         return res.format(**vals)
@@ -486,6 +465,10 @@ class DefaultResult(Result):
         self.displayed = True
         return str(self)
 
+    def get_solution(self):
+        solution = src.Solution.Solution(self)
+        return solution
+        
     def solvesubmethod(self):
         return self.value
     
@@ -518,6 +501,10 @@ class DefinedResult(Result):
     def solvesubmethod(self):
         return self.value
 
+    def get_solution(self):
+        solution = src.Solution.Solution(self)
+        return solution
+    
     def get_characteristics(self):
         return {
             'result' : self,
