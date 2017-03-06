@@ -159,11 +159,12 @@ class ParentResult(Result):
 
     def __str__(self):
         res = "{srcpred} is {srcval}, therefore {pred} is {val}"
+        vals = {}
         vals['srcpred'] = self.srcpred
-        vals['srcval'] = self.srcpred.solve()
+        vals['srcval'] = self.srcpred.solve().result.value
         vals['pred'] = self.pred
         vals['val'] = self.solve()
-        if not (isinstance(self.pred, NotPredicate)
+        if not (isinstance(self.srcpred, src.Predicates.NotPredicate)
                 or self.srcpred.p1 is self.srcpred.p2):
             if self.srcpred.p1 is self:
                 vals['twinpred'] = self.srcpred.p2
@@ -181,17 +182,17 @@ class NotParentResult(ParentResult):
     """
 
     conversion_table = {
-        (Undefined, None) : Undefined,
-        (U, None) : U,
-        (F, None) : T,
-        (T, None) : F
+        Undefined : Undefined,
+        U : U,
+        F : T,
+        T : F
     }
 
     #def __len__(self):
     #    return super(Result, self).__len__()
     
     def value_from_srcpred(self):
-        return self.conversion_table[self.srcpred.solve()]
+        return self.conversion_table[self.srcpred.solve().result.value]
 
     
 class AndParentResult(ParentResult):
@@ -303,6 +304,9 @@ class ChildResult(Result):
     def __init__(self, pred):
         super().__init__(pred)
         self.atomic_childs = self.pred.list_atomic_preds()
+
+    def get_solution(self):
+        return src.Solution.Solution(self, *[a.solve() for a in self.pred.list_atomic_preds()])
         
     def solvesubmethod(self, verbose, debug):
         if self.value == F or self.value == T:
@@ -379,7 +383,7 @@ class ImplicationResult(Result):
     values = {
         T : T,
         U : U,
-        F : U,
+        F : Undefined,
         Undefined : Undefined,
         None : Undefined
     }
@@ -422,7 +426,7 @@ class IndirectImplicationResult(ImplicationResult):
     """
 
     values = {
-        T : U,
+        T : Undefined,
         U : U,
         F : F,
         Undefined : Undefined,

@@ -5,7 +5,8 @@
 A => B
 B => C
 
-=A						# Initial facts : A, B and G are true. All others are false.
+=
+#=A						# Initial facts : A, B and G are true. All others are false.
 						# If no facts are initially true, then a simple "=" followed
 						# by a newline is used
 

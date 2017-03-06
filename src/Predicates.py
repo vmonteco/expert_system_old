@@ -156,7 +156,7 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
         for a in range(0, cases_number ** len(atompreds)):
             for p, i in zip(atompreds, range(0, len(atompreds))):
                 state = (a // cases_number ** i) % cases_number
-                p.state = states[state]
+                p.value = states[state]
             result &= selfbis.get_direct_state() == predbis.get_direct_state()
         for p in atompreds:
             del AtomicPredicate.instances[frozenset((p.name,))]
@@ -245,7 +245,7 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
         Make results related to contained predicates (For Parent predicates).
         """
 
-        self.results.add(ChildResult(self))
+        self.results.add(src.Results.ChildResult(self))
 
     
     def make_bis(self):
@@ -274,7 +274,7 @@ class AtomicPredicate(Predicate):
         self.results.add(src.Results.DefinedResult(self, value=T))
     
     def get_direct_state(self):
-        return self.state
+        return self.value
 
     def __str__(self):
         return self.name
@@ -304,7 +304,7 @@ class NotPredicate(Predicate):#, metaclass=MemoizeNotMetaclass):
         return self.values_table[self.p.solve()]
 
     def get_direct_state(self):
-        return self.values_table[self.state]
+        return self.values_table[self.p.get_direct_state()]
 
     def __str__(self):
         if (isinstance(self.p, AtomicPredicate)
