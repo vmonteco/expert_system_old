@@ -127,12 +127,21 @@ class ParentResult(Result):
         get the value the instance should have from the source predicate.
         """
 
-        key = (
-            self.srcpred.solve(),
-            self.twinpred.solve() if self.twinpred else None
-        )
+        src_sol = self.srcpred.solve()
+        print(" Result- ", self.pred, self.srcpred, self.srcpred.results, src_sol)
+        #print("test", self.srcpred, src_sol)
+        twin_sol = self.twinpred.get_determined_solution() if self.twinpred else None
+        src_val = src_sol.result.value if src_sol else Undefined
+        twin_val = twin_sol.result.value if twin_sol else Undefined
+        print(self.pred, src_sol, src_val, twin_sol, twin_val)
+        #print(type(self))
+        key = (src_val, twin_val)
+        #self.srcpred.solve().result.value or None,
+        #    self.twinpred.solve().result.value if self.twinpred else None
+        #)
         if key in self.error_cases:
             raise IncoherenceError
+        res = self.conv_table[key]
         return self.conv_table[key]
         
     def solvesubmethod(self, verbose, debug):
@@ -158,19 +167,19 @@ class ParentResult(Result):
         return self.length
 
     def __str__(self):
-        res = "{srcpred} is {srcval}, therefore {pred} is {val}"
+        res = "{srcpred} is {srcval}" #, therefore {pred} is {val}"
         vals = {}
         vals['srcpred'] = self.srcpred
         vals['srcval'] = self.srcpred.solve().result.value
-        vals['pred'] = self.pred
-        vals['val'] = self.solve()
+        #vals['pred'] = self.pred
+        #vals['val'] = self.solve()
         if not (isinstance(self.srcpred, src.Predicates.NotPredicate)
                 or self.srcpred.p1 is self.srcpred.p2):
             if self.srcpred.p1 is self:
                 vals['twinpred'] = self.srcpred.p2
             else:
                 vals['twinpred'] = self.srcpred.p1
-            vals['twinval'] = twinpred.solve()
+            vals['twinval'] = vals['twinpred'].solve().result.value
             res = "{twinpred} is {twinval} and " + res
         return res.format(**vals)
 
@@ -405,13 +414,13 @@ class ImplicationResult(Result):
         return self.value
     
     def __str__(self):
-        res = ("{srcpred} => {pred} and {srcpred} is {srcval}, therefore {pred}"
-               " is {val}.")
+        res = ("{srcpred} => {pred} and {srcpred} is {srcval}")#, therefore {pred}"
+        #" is {val}.")
         vals = {}
         vals['srcpred'] = self.srcpred
         vals['pred'] = self.pred
         vals['srcval'] = self.srcpred.solve().result.value
-        vals['val'] = self.value
+        #vals['val'] = self.value
         #vals['reason'] = self.reason
         return res.format(**vals)
 

@@ -69,7 +69,16 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
         self.used = True
         if self.results_built == False:
             self.make_results()
+        solution = (
+            self.get_determined_solution()
+            or src.Results.DefaultResult(self).get_solution()
+        )
+        self.used = False
+        return solution
+
+    def get_determined_solution(self):
         solutions = [r.get_solution() for r in self.results]
+        print(self, " solutions : ", solutions, " self.results : ", self.results, "results in solutions : ", [s.result for s in solutions])
         T_res = None
         F_res = None
         U_res = None
@@ -89,13 +98,8 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
             elif s.result.value == U:
                 if U_res == None or s.result.length < U_res.result.length:
                     U_res = s
-        solution = (
-            T_res or F_res or U_res
-            or src.Results.DefaultResult(self).get_solution()
-        )
-        self.used = False
+        solution = T_res or F_res or U_res or None
         return solution
-
     
     def link_equivalents(self):
 
@@ -382,7 +386,7 @@ class OrPredicate(ParentPredicate):
         (T, T) : T
     }
 
-    op = '+'
+    op = '|'
         
 class AndPredicate(ParentPredicate):
 
@@ -407,7 +411,7 @@ class AndPredicate(ParentPredicate):
         (T, T) : T
     }
 
-    op = '|'
+    op = '+'
     
 class XorPredicate(ParentPredicate):
 
