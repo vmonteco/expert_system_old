@@ -37,8 +37,12 @@ class Result:#(metaclass=ResultMemoizeMetaclass):
         It implementation may depend of the kind of result and the number of
         parent results may vary.
         """
+        if self.used:
+            return None
+        self.used = True
         self.solve()
         solution = src.Solution.Solution(self, self.srcpred.solve())
+        self.used = False
         return solution
             
     def solve(self, verbose=False, debug=False):
@@ -55,12 +59,12 @@ class Result:#(metaclass=ResultMemoizeMetaclass):
         It also handles the used attribute before calling it.
         """
 
-        if self.used:
-            return self.value
-        self.used = True
+        # if self.used:
+        #     return self.value
+        # self.used = True
         if self.value == Undefined or self.value == U:
             self.value = self.solvesubmethod(verbose, debug)
-        self.used = False
+        # self.used = False
         return self.value
 
     def make_display_text(self, verbose, debug):
@@ -439,7 +443,7 @@ class IndirectImplicationResult(ImplicationResult):
         vals = {}
         vals['srcpred'] = self.srcpred
         vals['pred'] = self.pred
-        vals['srcval'] = self.srcpred.solve().result.val
+        vals['srcval'] = self.srcpred.solve().result.value
         vals['val'] = self.value
         #vals['reason'] = self.reason
         return res.format(**vals)

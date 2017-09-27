@@ -41,7 +41,7 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
         self.results = set()
 
         # flags
-        self.used = False
+        # self.used = False
         self.results_built = False
 
         if register:
@@ -64,12 +64,12 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
         }
         """
 
-        if self.used:
-            return None
-        self.used = True
+        # if self.used:
+        #     return None
+        # self.used = True
         if self.results_built == False:
             self.make_results()
-        solutions = [r.get_solution() for r in self.results]
+        solutions = [r.get_solution() for r in self.results if not r.used]
         T_res = None
         F_res = None
         U_res = None
@@ -93,7 +93,7 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
             T_res or F_res or U_res
             or src.Results.DefaultResult(self).get_solution()
         )
-        self.used = False
+        # self.used = False
         return solution
 
     
