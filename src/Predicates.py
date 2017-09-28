@@ -40,6 +40,10 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
         self.entity = src.Entity.Entity(self)        
         self.results = set()
 
+        self.T_res = None
+        self.F_res = None
+        self.U_res = None
+        
         # flags
         # self.used = False
         self.results_built = False
@@ -64,33 +68,39 @@ class Predicate(metaclass=src.Metaclasses.MemoizeMetaclass):
         }
         """
 
+        print("Trying to solve %s." % self)
         # if self.used:
         #     return None
         # self.used = True
         if self.results_built == False:
             self.make_results()
-        solutions = [r.get_solution() for r in self.results if not r.used]
-        T_res = None
-        F_res = None
-        U_res = None
+        solutions = []
+        for r in self.results:
+            if not r.used:
+                #print(r)
+                solutions.append(r.get_solution())
+        #solutions = [r.get_solution() for r in self.results if not r.used]
         for s in solutions:
             if s == None:
                 continue
+            print(s.result)
             if s.result.value == T:
-                if F_res != None:
+                if self.F_res != None:
+                    print(self.F_res.result)
                     raise Exception()
-                elif T_res == None or s.length < T_res.length:
-                    T_res = s
+                elif self.T_res == None or s.length < self.T_res.length:
+                    self.T_res = s
             elif s.result.value == F:
-                if T_res != None:
-                    raise Exception()
-                elif F_res == None or s.length < F_res.length:
-                    F_res = s
+                if self.T_res != None:
+                    print(self.T_res)
+                    raise Exception("Incoherence")
+                elif self.F_res == None or s.length < self.F_res.length:
+                    self.F_res = s
             elif s.result.value == U:
-                if U_res == None or s.result.length < U_res.result.length:
-                    U_res = s
+                if self.U_res == None or s.result.length < self.U_res.result.length:
+                    self.U_res = s
         solution = (
-            T_res or F_res or U_res
+            self.T_res or self.F_res or self.U_res
             or src.Results.DefaultResult(self).get_solution()
         )
         # self.used = False
@@ -382,7 +392,7 @@ class OrPredicate(ParentPredicate):
         (T, T) : T
     }
 
-    op = '+'
+    op = '|'
         
 class AndPredicate(ParentPredicate):
 
@@ -407,7 +417,7 @@ class AndPredicate(ParentPredicate):
         (T, T) : T
     }
 
-    op = '|'
+    op = '+'
     
 class XorPredicate(ParentPredicate):
 

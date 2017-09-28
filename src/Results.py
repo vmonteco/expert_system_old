@@ -37,9 +37,9 @@ class Result:#(metaclass=ResultMemoizeMetaclass):
         It implementation may depend of the kind of result and the number of
         parent results may vary.
         """
-        if self.used:
-            return None
-        self.used = True
+        # if self.used:
+        #     return None
+        # self.used = True
         self.solve()
         solution = src.Solution.Solution(self, self.srcpred.solve())
         self.used = False
@@ -59,9 +59,10 @@ class Result:#(metaclass=ResultMemoizeMetaclass):
         It also handles the used attribute before calling it.
         """
 
-        # if self.used:
-        #     return self.value
-        # self.used = True
+        if self.used:
+            return None
+            #return self.value
+        self.used = True
         if self.value == Undefined or self.value == U:
             self.value = self.solvesubmethod(verbose, debug)
         # self.used = False
@@ -137,6 +138,8 @@ class ParentResult(Result):
         )
         if key in self.error_cases:
             raise IncoherenceError
+        print(self.__class__)
+        print(key[0].result)
         return self.conv_table[key]
         
     def solvesubmethod(self, verbose, debug):
